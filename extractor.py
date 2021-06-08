@@ -1,33 +1,44 @@
-from __future__ import print_function
-import json
+
+import re
+import csv
 import os.path
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-import re
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
 print('Program Started')
 TOTAL = 0
 SAVED_EMAILS = set()
+CSV_DATA = []
 
 
 def get_message(messageId: str, service):
-    global SAVED_EMAILS
-    headers = service.users().messages().get(
+    global SAVED_EMAILS, CSV_DATA
+
+    message = service.users().messages().get(
         userId="me",
         id=messageId,
         format="metadata"
-    ).execute()['payload']['headers']
+    ).execute()
+    payload = message['payload']
+
     recipent = [head['value']
-                for head in headers if head['name'] == 'To'][0]
+                for head in payload['headers'] if head['name'] == 'To'][0]
+
+    snippet = message['snippet']
+    labels = message['labelIds']
+
     emails = re.findall(
         r"[a-z0-9\.\-+_]+@[a-z0-9\.\-+_]+\.[a-z]+", recipent)
     print(f'\t\tFetched {len(emails)} emails')
+
     for email in emails:
         SAVED_EMAILS.add(email)
+        if [email, snippet] not in CSV_DATA:
+            CSV_DATA.append([email, snippet, " ".join(labels)])
 
     return len(emails)
 
@@ -43,7 +54,7 @@ def email_extractor(service, title: str):
             userId="me",
             q=f"in:sent {title}",
             pageToken=next_page,
-            maxResults=2  # max = 500
+            maxResults=500
         ).execute()
         print('Page Number', page_number)
 
@@ -72,7 +83,7 @@ def main():
     """Shows basic usage of the Gmail API.
     Lists the user's Gmail labels.
     """
-    global TOTAL, SAVED_EMAILS
+    global TOTAL, SAVED_EMAILS, CSV_DATA
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -100,7 +111,19 @@ def main():
     file = open('emails.txt', 'w')
     for email in SAVED_EMAILS:
         file.write(email+'\n')
-    print('Emails can be found in email.txt in the same directory')
+    file.close()
+
+    file = open('data.csv', 'w', newline='')
+    writer = csv.writer(file)
+    writer.writerow(["SN", "Email", "Message"])
+    serial_num = 1
+    for row in CSV_DATA:
+        writer.writerow([serial_num, *row])
+        serial_num += 1
+    file.close()
+
+    print('Emails ids can be found in email.txt in the same directory')
+    print('Emails and can be found in data.csv in the same directory')
 
 
 if __name__ == '__main__':

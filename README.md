@@ -8,7 +8,7 @@ in the GMAIL account of the user with a given title.
 Run the following command to install the dependencies.
 
 ```sh
-pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+pip3 install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
 ```
 
 ## Usage Instructions
@@ -26,3 +26,4 @@ pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-
 6. Enter the message title to search and press `Enter`.
 
 7. The list of emails will be saved in the current working directory with the name `emails.txt`.
+   The emails, their labels, and snippets can be viewed in `data.csv`
