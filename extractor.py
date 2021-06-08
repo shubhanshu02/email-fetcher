@@ -33,7 +33,11 @@ def get_message(messageId: str, service):
 
     emails = re.findall(
         r"[a-z0-9\.\-+_]+@[a-z0-9\.\-+_]+\.[a-z]+", recipent)
-    print(f'\t\tFetched {len(emails)} emails')
+
+    log_row = str(len(emails)) + ' email'
+    if len(emails) > 1:
+        log_row += 's'
+    print(f'\t\tFetched {log_row}')
 
     for email in emails:
         SAVED_EMAILS.add(email)
