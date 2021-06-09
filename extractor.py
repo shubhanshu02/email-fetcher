@@ -15,7 +15,7 @@ SAVED_EMAILS = set()
 CSV_DATA = []
 
 
-def get_message(messageId: str, service):
+def get_message(messageId: str, service, title: str):
     global SAVED_EMAILS, CSV_DATA
 
     message = service.users().messages().get(
@@ -28,21 +28,38 @@ def get_message(messageId: str, service):
     recipent = [head['value']
                 for head in payload['headers'] if head['name'] == 'To'][0]
 
+    subject = [head['value']
+               for head in payload['headers'] if head['name'] == 'Subject'][0]
+
+    if subject.lower() != title.lower():
+        print('\t\t0 emails matched')
+        return 0
+
     snippet = message['snippet']
     labels = message['labelIds']
 
     emails = re.findall(
         r"[a-z0-9\.\-+_]+@[a-z0-9\.\-+_]+\.[a-z]+", recipent)
 
+    label_list = []
+    for label_id in labels:
+        label_list.append(
+            service.users().labels().get(
+                userId="me",
+                id=label_id,
+            ).execute()['name']
+        )
+
     log_row = str(len(emails)) + ' email'
     if len(emails) > 1:
         log_row += 's'
-    print(f'\t\tFetched {log_row}')
+    print(f'\t\t{log_row} Matched')
 
     for email in emails:
         SAVED_EMAILS.add(email)
-        if [email, snippet] not in CSV_DATA:
-            CSV_DATA.append([email, snippet, " ".join(labels)])
+        if [email, subject, snippet, " ".join(label_list)] not in CSV_DATA:
+            CSV_DATA.append(
+                [email, subject, snippet, " ".join(label_list)])
 
     return len(emails)
 
@@ -52,11 +69,15 @@ def email_extractor(service, title: str):
     next_page = ""
     end = False
     page_number = 1
-    print(f"Query= in:sent {title}\n")
+    query = "in:sent "
+    title = title.strip()
+    if len(title) > 0:
+        query += f"subject: {title}"
+    print(f"Query= {query}\n")
     while True:
         fetchedlist = service.users().messages().list(
             userId="me",
-            q=f"in:sent {title}",
+            q=query,
             pageToken=next_page,
             maxResults=500
         ).execute()
@@ -75,7 +96,7 @@ def email_extractor(service, title: str):
         print(f'\tFetched {len(results)} messages')
 
         for current in results:
-            TOTAL += get_message(current['id'], service)
+            TOTAL += get_message(current['id'], service, title)
 
         page_number += 1
         if end:
@@ -119,7 +140,7 @@ def main():
 
     file = open('data.csv', 'w', newline='')
     writer = csv.writer(file)
-    writer.writerow(["SN", "Email", "Message"])
+    writer.writerow(["SN", "Email", 'Subject', "Message"])
     serial_num = 1
     for row in CSV_DATA:
         writer.writerow([serial_num, *row])
